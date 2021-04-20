@@ -1,0 +1,150 @@
+  // console.log(getMainCategories.length);
+
+  // let start;
+  // let productCategories = [];
+  // console.log(typeof productCategories);
+
+  // for (start = 0; start < getMainCategories.length; start++) {
+  //   // console.log(getMainCategories[start].mainCategoryId);
+  //   productCategories.push(getMainCategories[start].mainCategoryId);
+  // }
+  // console.log(productCategories);
+  // console.log(typeof JSON.stringify(productCategories));
+  // const stringToSlice = JSON.stringify(productCategories);
+  // const slicedString = stringToSlice.slice(1, -1);
+  // console.log(slicedString);
+  // const finalData = slicedString.split(',');
+  // console.log(finalData);
+  // console.log(typeof productCategories[0]);
+  // console.log(typeof productCategories);
+
+  import mongoose from 'mongoose';
+
+const userSchema = mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    number: {
+      type: Number,
+      required: true,
+    },
+    password: {
+      type: String,
+      required: true,
+    },
+    primaryAddress: {
+      type: String,
+      default: 'no-address',
+    },
+    secondaryAddress: {
+      type: String,
+      default: 'no-address',
+    },
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const Users = mongoose.model('Users', userSchema);
+export default Users;
+
+
+
+const registerShop = asynHandler(async (req, res) => {
+  let finalImageURL;
+  const adminId = req.admin.id;
+  const image = req.file;
+  console.log(image);
+
+  AWS.config.update({
+    accessKeyId: 'AKIAZPZEKRNJC6BBJLBS',
+    secretAccessKey: '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',
+    region: 'ap-south-1',
+  });
+
+  const s3 = new AWS.S3();
+  const bucketName = '';
+  const myKey = 'jpeg';
+  let params = {
+    Bucket: 'shop-images-at-your-door',
+    Body: image.buffer,
+    Key: `${adminId}.jpeg`,
+    ContentEncoding: 'base64',
+    ContentDisposition: 'inline',
+    ACL: 'public-read',
+    ContentType: image.mimetype,
+  };
+  // const fileStream = fs.createReadStream(image);
+  // fileStream.on('error', function (err) {
+  //   console.log('File Error', err);
+  // });
+  // params.Body = fileStream;
+  s3.upload(params, async (err, data) => {
+    if (err) {
+      console.log('Error', err);
+    }
+    if (data) {
+      console.log('Upload Success', data.Location);
+      finalImageURL = data.Location;
+
+      const {
+        shopName,
+        // shopImageURL,
+        shopAddress,
+        shopNumber,
+        shopLocation,
+      } = req.body;
+      // console.log(typeof shopLocation);
+      const newShop = new Shops({
+        shopOwnerID: adminId,
+        shopName,
+        shopImageURL: finalImageURL,
+        shopAddress,
+        shopNumber,
+        shopLocation: shopLocation.split(','),
+      });
+
+      console.log(newShop);
+
+      await newShop.save();
+
+      const updateShop = await Admin.findById(adminId);
+      console.log(typeof updateShop.shopId);
+      console.log(updateShop.shopId);
+      updateShop.shopId = newShop._id;
+      await updateShop.save();
+    }
+  });
+  // let imageU;
+  // Working Code
+  // s3.putObject(params, (err, data) => {
+  //   if (err) {
+  //     console.log(err);
+  //   } else {
+  //     console.log(data.BucketKeyEnabled);
+  //   }
+  // });
+  // s3.upload(params, (err, data) => {
+  //   if (err) {
+  //     console.log(`${err}`);
+  //   }
+
+  //   if (data) {
+  //     console.log(data);
+  //   }
+  // });
+
+  res.status(200).json({ msg: 'Shop SuccessFully Created' });
+});
+
+mongodb://127.0.0.1:27017/?compressors=disabled&gssapiServiceName=mongodb
